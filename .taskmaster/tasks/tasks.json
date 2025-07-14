@@ -1,0 +1,851 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Implement Adaptive Backup Scheduler",
+        "description": "Develop the central orchestrator with adaptive scheduling capabilities to manage backup operations across different database technologies.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Create a scheduler service using Java 21 and Spring Boot that dynamically adjusts backup timing based on workload, network, and host capacity. Implement rate limiting to prevent resource spikes during peak business traffic. The scheduler should support configurable policies per database technology and maintain a queue of pending backup jobs.\n\nKey components:\n- Scheduler core with priority queue using Java 21 concurrent data structures\n- Rate limiting mechanism based on network/host metrics using Spring Boot actuators\n- Workload detection to defer during peak traffic\n- Database technology-specific scheduling parameters\n- Monitoring hooks for backup job status\n\nPseudo-code:\n```java\n@Service\npublic class AdaptiveScheduler {\n  public void scheduleBackup(DbInstance dbInstance, TechType techType, Priority priority) {\n    // Check current system load\n    if (systemLoad > threshold && priority != Priority.HIGH) {\n      requeueWithBackoff(dbInstance);\n      return;\n    }\n    \n    // Check network capacity\n    if (networkCapacity < requiredCapacity) {\n      requeueWithBackoff(dbInstance);\n      return;\n    }\n      \n    // Schedule backup with rate limiting\n    enqueueBackupJob(dbInstance, techType);\n  }\n    \n  @Scheduled(fixedRate = 1000)\n  public void processQueue() {\n    // Process queue based on priority and capacity\n    while (!queue.isEmpty() && capacityAvailable()) {\n      Job job = queue.dequeue();\n      executeBackupJob(job);\n    }\n  }\n}\n```",
+        "testStrategy": "1. JUnit 5 unit tests for scheduling logic and rate limiting\n2. Spring Boot integration tests with simulated high/low system load\n3. Load testing with varying numbers of database instances using JMeter\n4. Validation that backups don't cause latency spikes in production workloads\n5. Metrics collection using Micrometer to verify absence of backup-induced latency events",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design and implement scheduler core with priority queue",
+            "description": "Create the central scheduler component with a priority-based queue system that manages pending backup jobs",
+            "dependencies": [],
+            "details": "Implement the core scheduler class in Java 21 with a priority queue data structure that sorts backup jobs based on urgency, database type, and size. Use Java 21's enhanced concurrency features for thread safety. Include methods for adding, removing, and processing jobs. Implement the queue processing logic that handles job execution based on available system resources. Use Spring Boot's scheduling capabilities for periodic queue processing.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for queue operations, priority handling, and job scheduling logic. Spring Boot integration tests with mock database instances to verify correct scheduling behavior."
+          },
+          {
+            "id": 2,
+            "title": "Develop rate limiting mechanism based on system metrics",
+            "description": "Create a system that monitors network and host metrics to dynamically adjust backup execution rates",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement collectors for system metrics using Spring Boot Actuator and Micrometer, including CPU usage, memory availability, network bandwidth, and I/O capacity. Create a rate limiting algorithm that uses these metrics to determine how many concurrent backup jobs can run. Implement backoff strategies for when system resources are constrained. Use Java 21's virtual threads for efficient handling of monitoring tasks.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for rate limiting algorithms. Spring Boot integration tests with simulated high/low system loads to verify appropriate throttling behavior."
+          },
+          {
+            "id": 3,
+            "title": "Implement workload detection for peak traffic deferral",
+            "description": "Build a mechanism to detect high business traffic periods and defer non-critical backups accordingly",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Create a workload detection service using Spring Boot that monitors database query patterns, application traffic metrics, and time-based patterns to identify peak business hours. Implement logic to defer low-priority backups during these periods while still ensuring critical backups proceed. Include configurable thresholds for different database technologies. Use Java 21's pattern matching for switch expressions to simplify traffic pattern analysis.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for workload detection algorithms. Spring Boot integration tests with simulated traffic patterns to verify appropriate deferral behavior. End-to-end tests to ensure critical backups still proceed during high traffic."
+          },
+          {
+            "id": 4,
+            "title": "Develop database technology-specific scheduling parameters",
+            "description": "Create configurable scheduling policies for different database technologies (MySQL, Cassandra, etcd, etc.)",
+            "dependencies": [
+              1
+            ],
+            "details": "Design and implement a configuration system using Spring Boot's @ConfigurationProperties for database-specific scheduling parameters including optimal backup windows, resource requirements, and priority levels. Create default profiles for common database technologies. Implement the integration between these parameters and the scheduler core to ensure technology-appropriate scheduling decisions. Use Java 21 records for immutable configuration objects.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for parameter validation and application. Spring Boot integration tests with different database types to verify appropriate scheduling behavior based on technology-specific parameters."
+          },
+          {
+            "id": 5,
+            "title": "Implement monitoring hooks and status tracking",
+            "description": "Create a comprehensive system to track and report on backup job status and scheduler performance",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "details": "Implement monitoring hooks throughout the scheduler using Spring Boot Actuator and Micrometer to track job status, queue length, execution times, and resource utilization. Create RESTful interfaces for external monitoring systems to consume these metrics. Implement logging using SLF4J with Logback for scheduler decisions and job lifecycle events. Design and implement status reporting APIs using Spring Boot for integration with dashboards.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for metric collection accuracy. Spring Boot integration tests with monitoring systems. End-to-end tests to verify metrics flow correctly from job execution through to reporting systems."
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Develop Unified Backup Driver Framework",
+        "description": "Create a plugin-based framework for database-specific backup operations that standardizes the snapshot and upload process across different database technologies.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Design and implement a unified driver framework in Java 21 and Spring Boot that allows for pluggable database technology support. Each plugin should handle the specifics of creating consistent snapshots for its database type and manage the upload process to Uber Blobstore.\n\nComponents:\n- Base driver interface defining common backup operations\n- Plugin registration and discovery mechanism using Spring Boot's auto-configuration\n- Technology-specific implementations for MySQL, Cassandra, etcd initially\n- Error handling and retry logic\n- Monitoring integration with Micrometer\n\nPseudo-code:\n```java\npublic interface BackupDriver {\n  Snapshot createSnapshot(DbInstance dbInstance);\n  boolean validateSnapshot(Snapshot snapshot);\n  BlobstoreReference uploadToBlobstore(Snapshot snapshot, RateLimit rateLimit);\n  boolean cleanup(Snapshot snapshot);\n}\n\n@Component\npublic class MySQLBackupDriver implements BackupDriver {\n  @Override\n  public Snapshot createSnapshot(DbInstance dbInstance) {\n    // MySQL-specific snapshot logic\n    return mysqlSnapshot;\n  }\n    \n  @Override\n  public boolean validateSnapshot(Snapshot snapshot) {\n    // Validate MySQL snapshot integrity\n    return isValid;\n  }\n    \n  // Other method implementations\n}\n\n// Similar implementations for Cassandra, etcd, etc.\n```",
+        "testStrategy": "1. JUnit 5 unit tests for each database technology driver\n2. Spring Boot integration tests with actual database instances in test environment\n3. Snapshot consistency validation tests\n4. Upload performance tests with different rate limits\n5. Error handling and recovery tests using JUnit 5 assertions and assumptions",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design Base Driver Interface",
+            "description": "Define the core interface that all database-specific backup drivers must implement, including standard methods for snapshot creation, validation, upload, and cleanup.",
+            "dependencies": [],
+            "details": "Create a comprehensive Java interface definition using Java 21 features that standardizes backup operations across database technologies. Include method signatures for createSnapshot(), validateSnapshot(), uploadToBlobstore(), and cleanup() with appropriate parameters and return types. Use Java 21 records for immutable data transfer objects. Document each method with clear JavaDoc specifications for expected behavior, error handling, and performance considerations.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for interface compliance, mock implementations to verify contract enforcement, and documentation validation."
+          },
+          {
+            "id": 2,
+            "title": "Implement Plugin Registration System",
+            "description": "Create a dynamic plugin registration and discovery mechanism that allows database-specific drivers to be registered and loaded at runtime.",
+            "dependencies": [
+              1
+            ],
+            "details": "Develop a plugin system using Spring Boot's auto-configuration and component scanning that supports dynamic loading of database drivers. Implement a registry that maintains available driver implementations, handles version compatibility, and provides a clean API for driver discovery. Include configuration options for plugin paths and validation of plugin integrity upon loading. Use Java 21's enhanced type inference for cleaner generic handling.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for plugin registration/deregistration, tests for handling malformed plugins, and Spring Boot integration tests with sample plugins."
+          },
+          {
+            "id": 3,
+            "title": "Develop MySQL Backup Driver Implementation",
+            "description": "Create the first concrete implementation of the backup driver interface for MySQL databases, handling MySQL-specific snapshot creation and validation.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement a MySQL-specific backup driver in Java 21 that handles the intricacies of creating consistent database snapshots. Include support for different MySQL versions, handling of InnoDB and MyISAM tables, binary log position tracking, and proper locking mechanisms to ensure consistency without excessive downtime. Use Spring Boot's JDBC support for database connections.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for MySQL-specific functionality, Spring Boot integration tests with actual MySQL instances, snapshot consistency validation, and performance benchmarking."
+          },
+          {
+            "id": 4,
+            "title": "Implement Error Handling and Retry Framework",
+            "description": "Design and implement a robust error handling and retry mechanism for backup operations that can recover from transient failures.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Create a comprehensive error classification system in Java 21 that distinguishes between recoverable and non-recoverable errors. Implement exponential backoff retry logic for transient failures, circuit breakers for persistent issues, and detailed error reporting. Use Spring Retry for retry logic implementation. Ensure proper resource cleanup during failures and support for resumable uploads to Blobstore. Leverage Java 21's enhanced exception handling.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for retry logic, simulated failure scenarios, timeout handling tests, and Spring Boot integration tests with artificially induced network/storage failures."
+          },
+          {
+            "id": 5,
+            "title": "Develop Cassandra and etcd Driver Implementations",
+            "description": "Implement backup driver plugins for Cassandra and etcd databases, following the established interface and leveraging database-specific snapshot mechanisms.",
+            "dependencies": [
+              1,
+              2,
+              4
+            ],
+            "details": "Create driver implementations in Java 21 for Cassandra and etcd that handle their unique architectures. For Cassandra, implement support for token-aware snapshots, multi-node consistency, and SSTable handling. For etcd, implement support for consistent snapshots via the built-in snapshot mechanism, handling of distributed consensus, and proper version compatibility across the etcd 3.x series. Use Spring Boot's dependency injection for client configuration.",
+            "status": "pending",
+            "testStrategy": "Database-specific JUnit 5 unit tests, Spring Boot integration tests with actual Cassandra and etcd clusters, consistency validation across distributed nodes, and performance testing under various load conditions."
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Integrate with Uber Blobstore",
+        "description": "Implement the integration with Uber Blobstore for storing backup snapshots with appropriate rate control and retention policies.",
+        "status": "pending",
+        "dependencies": [
+          2
+        ],
+        "priority": "high",
+        "details": "Develop the integration layer between the backup system and Uber Blobstore using Java 21 and Spring Boot. Implement rate-controlled uploads to prevent network spikes, configure appropriate retention policies, and ensure proper metadata tagging for snapshots.\n\nComponents:\n- Blobstore client with rate limiting capabilities\n- Metadata management for snapshots (database type, timestamp, size, etc.)\n- Retention policy enforcement\n- Multi-region support for compliance requirements\n- Upload status tracking and reporting\n\nPseudo-code:\n```java\n@Service\npublic class BlobstoreManager {\n  public BlobstoreReference uploadSnapshot(Snapshot snapshot, RateLimit rateLimit) {\n    // Apply rate limiting\n    ThrottledStream throttledStream = createThrottledStream(snapshot.getData(), rateLimit);\n    \n    // Prepare metadata\n    Map<String, String> metadata = Map.of(\n      \"db_type\", snapshot.getDbType(),\n      \"timestamp\", snapshot.getTimestamp().toString(),\n      \"size\", String.valueOf(snapshot.getSize()),\n      \"region\", snapshot.getRegion(),\n      \"retention_policy\", getRetentionPolicy(snapshot.getDbType())\n    );\n    \n    // Upload to blobstore with metadata\n    BlobstoreReference reference = blobstoreClient.upload(throttledStream, metadata);\n    return reference;\n  }\n    \n  @Scheduled(cron = \"0 0 * * * *\")\n  public void applyRetentionPolicies() {\n    // Scan for snapshots beyond retention period\n    List<Snapshot> expired = findExpiredSnapshots();\n    for (Snapshot snapshot : expired) {\n      blobstoreClient.delete(snapshot.getReference());\n    }\n  }\n}\n```",
+        "testStrategy": "1. JUnit 5 unit tests for rate limiting logic\n2. Spring Boot integration tests with Uber Blobstore\n3. Performance tests with various snapshot sizes\n4. Retention policy enforcement tests\n5. Network impact monitoring during uploads using Micrometer metrics",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Develop Blobstore Client with Rate Limiting",
+            "description": "Create a client for Uber Blobstore with built-in rate limiting capabilities to prevent network spikes during uploads",
+            "dependencies": [],
+            "details": "Implement a client wrapper for Uber Blobstore API in Java 21 that includes configurable rate limiting. The client should handle authentication, connection pooling, and throttled data streaming. Use Spring Boot's RestTemplate or WebClient for API communication. Include retry logic for transient failures and proper error handling. Leverage Java 21's virtual threads for efficient I/O operations.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for rate limiting logic, connection handling tests, error recovery tests, and performance tests with various throttling configurations"
+          },
+          {
+            "id": 2,
+            "title": "Implement Snapshot Metadata Management",
+            "description": "Create a system for managing and storing metadata associated with backup snapshots",
+            "dependencies": [
+              1
+            ],
+            "details": "Design and implement a metadata schema for backup snapshots using Java 21 records including database type, timestamp, size, region, and other relevant attributes. Develop Spring Boot services to generate, validate, and attach metadata to snapshots during upload. Use Spring Data for metadata persistence. Ensure metadata is searchable and can be used for filtering snapshots.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for metadata generation and validation, Spring Boot integration tests with Blobstore metadata tagging, query performance tests"
+          },
+          {
+            "id": 3,
+            "title": "Develop Retention Policy Framework",
+            "description": "Create a configurable framework for defining and enforcing snapshot retention policies",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement a system in Java 21 and Spring Boot to define retention policies based on database type, importance, and compliance requirements. Create a scheduler using Spring's @Scheduled annotation to regularly scan for and remove snapshots that exceed their retention period. Include logging with SLF4J and audit trails for all deletion operations.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for policy evaluation logic, Spring Boot integration tests with Blobstore deletion API, time-based tests for retention enforcement, audit log validation"
+          },
+          {
+            "id": 4,
+            "title": "Implement Multi-region Support",
+            "description": "Extend the Blobstore integration to support storing snapshots across multiple regions",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Enhance the Blobstore client in Java 21 to support multi-region storage based on compliance requirements. Implement region selection logic, cross-region replication capabilities, and region-specific retention rules. Use Spring Boot's configuration properties for region-specific settings. Ensure proper handling of region-specific authentication and rate limits.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for region selection logic, Spring Boot integration tests with multi-region Blobstore setup, cross-region replication tests, compliance validation tests"
+          },
+          {
+            "id": 5,
+            "title": "Create Upload Status Tracking System",
+            "description": "Develop a system to track and report on the status of snapshot uploads to Blobstore",
+            "dependencies": [
+              1,
+              2,
+              4
+            ],
+            "details": "Implement a tracking system in Java 21 and Spring Boot that monitors the progress of snapshot uploads, records success/failure status, and provides reporting capabilities. Include real-time progress indicators, error classification, and retry management. Integrate with Micrometer to expose upload performance statistics. Use Spring Boot's event system for status updates.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for status tracking logic, Spring Boot integration tests with simulated upload scenarios, error handling tests, reporting accuracy validation"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Build Backup Policies UI/API",
+        "description": "Develop the user interface and API for configuring backup policies, including scheduling parameters and retention rules per database technology.",
+        "status": "pending",
+        "dependencies": [
+          1
+        ],
+        "priority": "high",
+        "details": "Create a comprehensive UI and API for service owners to configure backup policies for their databases. The interface should allow setting of scheduling parameters, retention periods, and priority levels per database or database cluster.\n\nComponents:\n- RESTful API built with Spring Boot and Java 21\n- React-based UI for policy configuration in the internal platform console\n- Policy validation logic\n- Database of policy configurations using Spring Data JPA\n- Audit logging for policy changes\n\nAPI Endpoints:\n```\nGET /api/backup/policies - List all policies\nGET /api/backup/policies/{id} - Get specific policy\nPOST /api/backup/policies - Create new policy\nPUT /api/backup/policies/{id} - Update policy\nDELETE /api/backup/policies/{id} - Delete policy\n\nPolicy JSON schema:\n{\n  \"db_identifier\": \"string\",\n  \"db_type\": \"string\",\n  \"schedule\": {\n    \"frequency\": \"string\",\n    \"preferred_window\": \"string\",\n    \"priority\": \"string\"\n  },\n  \"retention\": {\n    \"period_days\": \"number\",\n    \"min_snapshots\": \"number\"\n  }\n}\n```",
+        "testStrategy": "1. JUnit 5 unit tests for API endpoints and validation logic\n2. React component tests using Jest and React Testing Library\n3. Spring Boot integration tests with policy enforcement\n4. User acceptance testing with service owners\n5. Audit log verification",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design and implement RESTful API for backup policy management",
+            "description": "Create the backend API endpoints for managing backup policies with proper validation and error handling",
+            "dependencies": [],
+            "details": "Implement the five RESTful API endpoints (GET, POST, PUT, DELETE) using Spring Boot and Java 21 according to the specified schema. Include validation logic for policy parameters based on database type using Spring Validation. Ensure proper error handling and response formatting. Implement authentication and authorization checks using Spring Security. Create database models for storing policy configurations using Spring Data JPA.",
+            "status": "pending",
+            "testStrategy": "Write JUnit 5 unit tests for each API endpoint, validation logic, and error handling. Create Spring Boot integration tests to verify database interactions. Test authentication and authorization scenarios."
+          },
+          {
+            "id": 2,
+            "title": "Develop UI components for policy configuration",
+            "description": "Create the user interface components for the internal platform console to configure backup policies",
+            "dependencies": [
+              1
+            ],
+            "details": "Design and implement UI components using React 18+ for policy creation, editing, and deletion. Include forms for scheduling parameters (frequency, preferred window, priority), retention rules (period days, min snapshots), and database-specific options. Use Material-UI or another modern React component library. Ensure responsive design and accessibility compliance. Implement client-side validation to complement server-side checks.",
+            "status": "pending",
+            "testStrategy": "Create component tests using Jest and React Testing Library for UI elements. Test form validation logic. Verify responsive behavior across different screen sizes. Conduct usability testing with representative users."
+          },
+          {
+            "id": 3,
+            "title": "Implement database-specific policy validation logic",
+            "description": "Create validation rules for backup policies based on the specific requirements of different database technologies",
+            "dependencies": [
+              1
+            ],
+            "details": "Develop validation rules in Java 21 for MySQL, Cassandra, and etcd backup policies. Implement checks for valid scheduling parameters based on database type (e.g., minimum backup frequency, valid time windows). Create validation for retention policies considering database size and recovery point objectives. Use Spring Boot's validation framework. Ensure policies comply with organizational data retention requirements.",
+            "status": "pending",
+            "testStrategy": "Write JUnit 5 unit tests for each database-specific validation rule. Test edge cases and boundary conditions. Verify validation behavior with invalid inputs."
+          },
+          {
+            "id": 4,
+            "title": "Create audit logging system for policy changes",
+            "description": "Implement comprehensive audit logging for all backup policy modifications",
+            "dependencies": [
+              1
+            ],
+            "details": "Design and implement an audit logging system using Spring Boot and Java 21 that captures all policy creation, modification, and deletion events. Use Spring AOP for cross-cutting audit concerns. Record user information, timestamp, action type, and before/after policy states. Ensure logs are securely stored and cannot be modified. Implement a query interface for retrieving audit logs with filtering capabilities.",
+            "status": "pending",
+            "testStrategy": "Test audit log creation for all policy operations using JUnit 5. Verify log integrity and immutability. Test query and filtering capabilities. Ensure proper handling of sensitive information."
+          },
+          {
+            "id": 5,
+            "title": "Integrate policy UI/API with scheduler system",
+            "description": "Connect the backup policy configuration system with the adaptive backup scheduler",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "details": "Integrate the policy management system with the adaptive backup scheduler from Task 1. Implement notification mechanisms using Spring Events to inform the scheduler of policy changes. Ensure real-time policy updates are reflected in scheduling decisions. Create a React dashboard to display upcoming scheduled backups based on configured policies.",
+            "status": "pending",
+            "testStrategy": "Perform Spring Boot integration testing between policy system and scheduler. Verify that policy changes correctly affect scheduling behavior. Test notification mechanisms under various conditions. Validate dashboard accuracy."
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Implement Unified Restore Driver Framework",
+        "description": "Create a plugin-based framework for database-specific restore operations that standardizes the download and restore process across different database technologies.",
+        "status": "pending",
+        "dependencies": [
+          2,
+          3
+        ],
+        "priority": "high",
+        "details": "Design and implement a unified restore driver framework in Java 21 and Spring Boot that mirrors the backup driver framework. Each plugin should handle the specifics of restoring snapshots for its database type and manage the download process from Uber Blobstore.\n\nComponents:\n- Base restore driver interface defining common restore operations\n- Plugin registration and discovery mechanism using Spring Boot's auto-configuration\n- Technology-specific implementations for MySQL, Cassandra, etcd initially\n- Validation of restored databases\n- Error handling and retry logic\n\nPseudo-code:\n```java\npublic interface RestoreDriver {\n  Snapshot downloadSnapshot(BlobstoreReference reference);\n  boolean prepareRestore(Snapshot snapshot, Target target);\n  RestoreResult executeRestore(Snapshot snapshot, Target target);\n  ValidationResult validateRestoredDb(Target target);\n}\n\n@Component\npublic class MySQLRestoreDriver implements RestoreDriver {\n  @Override\n  public Snapshot downloadSnapshot(BlobstoreReference reference) {\n    // Download MySQL snapshot from blobstore\n    return mysqlSnapshot;\n  }\n    \n  @Override\n  public boolean prepareRestore(Snapshot snapshot, Target target) {\n    // Prepare target for MySQL restore\n    return isPrepared;\n  }\n    \n  // Other method implementations\n}\n\n// Similar implementations for Cassandra, etcd, etc.\n```",
+        "testStrategy": "1. JUnit 5 unit tests for each database technology restore driver\n2. Spring Boot integration tests with actual database instances in test environment\n3. Restore validation tests\n4. Performance tests to validate RTO targets\n5. Error handling and recovery tests",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design and implement base restore driver interface",
+            "description": "Create the core interface that defines common restore operations across all database technologies",
+            "dependencies": [],
+            "details": "Develop the RestoreDriver interface in Java 21 with methods for downloadSnapshot, prepareRestore, executeRestore, and validateRestoredDb. Include error handling patterns, retry logic specifications, and documentation for plugin developers. Define clear contracts for each method including parameter requirements and return values. Use Java 21 records for immutable data transfer objects.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for interface contract validation, mock implementations to verify behavior, and documentation validation tests"
+          },
+          {
+            "id": 2,
+            "title": "Implement plugin registration and discovery mechanism",
+            "description": "Create a system for dynamically registering and discovering restore driver plugins for different database technologies",
+            "dependencies": [
+              1
+            ],
+            "details": "Develop a plugin registry using Spring Boot's auto-configuration and component scanning that allows restore drivers to register themselves at runtime. Implement a discovery mechanism that can find and load plugins from predefined locations. Create a factory pattern for instantiating the appropriate restore driver based on database type. Include versioning support for plugins to allow multiple versions to coexist.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for registration/discovery logic, tests with mock plugins, validation of proper plugin selection based on database type"
+          },
+          {
+            "id": 3,
+            "title": "Implement MySQL restore driver",
+            "description": "Create the MySQL-specific implementation of the restore driver interface",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Implement MySQLRestoreDriver in Java 21 that handles MySQL-specific restore operations. Include logic for downloading MySQL snapshots from Uber Blobstore, preparing target instances for restore (stopping services, clearing data directories), executing the restore process with proper configuration, and validating the restored database through connectivity and data integrity checks. Use Spring Boot's JDBC support for database operations.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for MySQL-specific logic, Spring Boot integration tests with actual MySQL instances, performance tests for large databases, error handling tests"
+          },
+          {
+            "id": 4,
+            "title": "Implement Cassandra and etcd restore drivers",
+            "description": "Create the Cassandra and etcd implementations of the restore driver interface",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Implement CassandraRestoreDriver and EtcdRestoreDriver classes in Java 21 following the same pattern as the MySQL driver but with technology-specific implementations. Handle the unique aspects of Cassandra's distributed nature and etcd's consensus requirements during restore operations. Include proper validation mechanisms specific to each technology. Use Spring Boot's dependency injection for client configuration.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for each driver, Spring Boot integration tests with actual Cassandra and etcd clusters, tests for distributed restore scenarios, validation of cluster health post-restore"
+          },
+          {
+            "id": 5,
+            "title": "Implement comprehensive error handling and monitoring",
+            "description": "Develop robust error handling, retry logic, and monitoring integration for the restore framework",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "details": "Implement standardized error handling across all restore drivers with appropriate retry policies for transient failures using Spring Retry. Create detailed error classification to distinguish between recoverable and non-recoverable errors. Integrate with Micrometer to report restore progress, success rates, and timing information. Implement logging using SLF4J with Logback for all restore operations with appropriate detail levels for debugging and audit purposes.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for error handling and retry logic, Spring Boot integration tests with forced failure scenarios, validation of metrics emission, verification of proper error reporting and classification"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Develop Restore Scheduler and Drill Engine",
+        "description": "Implement the scheduler for periodic restore drills and the engine to execute and validate restore operations.",
+        "status": "pending",
+        "dependencies": [
+          5
+        ],
+        "priority": "high",
+        "details": "Create a system using Java 21 and Spring Boot to schedule and execute periodic restore drills to validate backup integrity and restore processes. The system should support configurable drill frequencies, success thresholds, and validation criteria.\n\nComponents:\n- Drill scheduler with configurable policies using Spring's scheduling capabilities\n- Restore execution engine\n- Validation framework for restored databases\n- Reporting and alerting for drill results\n- Metrics collection for RTO validation using Micrometer\n\nPseudo-code:\n```java\n@Service\npublic class RestoreDrillEngine {\n  public void scheduleDrill(DatabaseType dbType, Frequency frequency) {\n    // Add to drill schedule\n    drillScheduler.add(dbType, frequency);\n  }\n    \n  public boolean executeDrill(DbInstance dbInstance) {\n    // Find latest backup\n    BlobstoreReference snapshotRef = findLatestSnapshot(dbInstance);\n    \n    // Provision test instance\n    Target testInstance = provisionTestInstance(dbInstance.getType());\n    \n    // Execute restore\n    RestoreDriver restoreDriver = getRestoreDriver(dbInstance.getType());\n    RestoreResult result = restoreDriver.executeRestore(snapshotRef, testInstance);\n    \n    // Validate restored database\n    ValidationResult validation = restoreDriver.validateRestoredDb(testInstance);\n    \n    // Record metrics and report results\n    recordRtoMetrics(result.getStartTime(), result.getEndTime(), snapshotRef.getSize());\n    reportDrillResult(dbInstance, result, validation);\n    \n    return validation.isSuccess();\n  }\n}\n```",
+        "testStrategy": "1. JUnit 5 unit tests for drill scheduling logic\n2. Spring Boot integration tests with restore drivers\n3. End-to-end drill tests in isolated environments\n4. RTO measurement validation\n5. Alert and reporting verification",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Drill Scheduler with Configurable Policies",
+            "description": "Develop the scheduler component that manages periodic restore drills based on configurable policies",
+            "dependencies": [],
+            "details": "Create a scheduler using Java 21 and Spring Boot's @Scheduled annotation that maintains a database of drill configurations with frequency settings per database type. Implement cron-like scheduling logic to trigger drills at appropriate intervals. Include configuration options for time windows, blackout periods, and priority levels. The scheduler should be resilient to restarts and maintain state in a persistent store using Spring Data JPA.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for scheduling algorithms, Spring Boot integration tests with mock time providers, validation of frequency calculations, persistence tests for scheduler state, and conflict resolution tests for overlapping schedules"
+          },
+          {
+            "id": 2,
+            "title": "Build Restore Execution Engine",
+            "description": "Implement the core engine that executes restore operations from backups to test environments",
+            "dependencies": [
+              1
+            ],
+            "details": "Develop the execution engine in Java 21 and Spring Boot that provisions temporary test instances, identifies appropriate backup snapshots, and orchestrates the restore process. Include retry logic using Spring Retry for failed restores, resource management for test instances, and cleanup procedures after drill completion. The engine should support parallel execution of multiple drills using Java 21's virtual threads while respecting resource constraints.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for restore workflow logic, Spring Boot integration tests with test environments, resource allocation tests, cleanup verification, and error handling tests for various failure scenarios"
+          },
+          {
+            "id": 3,
+            "title": "Create Validation Framework for Restored Databases",
+            "description": "Develop a framework to validate the integrity and functionality of restored databases",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement a pluggable validation framework in Java 21 and Spring Boot that can verify restored databases across different technologies. Include basic validation checks (connectivity, schema integrity) and support for custom validation scripts. The framework should measure validation metrics like data completeness, query performance, and structural integrity using Micrometer. Support both automated and manual validation workflows.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for validation logic, Spring Boot integration tests with restored databases, performance benchmarking of validation operations, and extensibility tests with custom validation plugins"
+          },
+          {
+            "id": 4,
+            "title": "Implement Reporting and Alerting System",
+            "description": "Build a comprehensive reporting and alerting system for restore drill results",
+            "dependencies": [
+              3
+            ],
+            "details": "Develop a reporting system using Java 21 and Spring Boot that tracks drill results, success rates, and validation outcomes. Implement alerting for failed drills, validation errors, and missed RTO targets. Create React-based dashboards showing drill history, success trends, and compliance status. Include notification channels for email, Slack, and PagerDuty with appropriate severity levels based on failure impact.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for report generation logic, alert trigger tests, notification delivery verification, dashboard data accuracy tests, and alert throttling tests"
+          },
+          {
+            "id": 5,
+            "title": "Develop RTO Metrics Collection and Analysis",
+            "description": "Implement metrics collection and analysis for Recovery Time Objective (RTO) validation",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Create a metrics collection system using Java 21, Spring Boot, and Micrometer that measures key restore performance indicators including total restore time, data transfer rates, and validation duration. Implement analysis tools to compare actual restore times against RTO requirements. Build trending reports to identify performance degradation over time. Include database size normalization for fair comparisons across different instances.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for metrics calculations, performance benchmarking tests, statistical analysis validation, trend detection tests, and Spring Boot integration tests with monitoring systems"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Implement Metrics and Alerting System",
+        "description": "Develop comprehensive metrics collection, dashboards, and alerting for backup and restore operations to monitor RPO, RTO, and overall system health.",
+        "status": "pending",
+        "dependencies": [
+          1,
+          6
+        ],
+        "priority": "high",
+        "details": "Create a metrics and alerting system using Java 21, Spring Boot, and Micrometer that provides visibility into the health and performance of the CBCR system. Implement React-based dashboards for monitoring RPO, RTO, backup success rates, and other key metrics. Set up alerts for backup failures, restore failures, and SLA violations.\n\nComponents:\n- Metrics collection for backup and restore operations using Micrometer\n- RPO tracking per database instance\n- RTO measurement during restore drills\n- Custom dashboards in monitoring system built with React\n- Alert definitions and routing using Spring Boot Actuator\n\nMetrics to collect:\n- Backup age (for RPO tracking)\n- Backup success rate\n- Backup duration\n- Backup size\n- Restore duration (for RTO tracking)\n- Restore success rate\n- Network utilization during backups\n- Storage utilization\n\nPseudo-code:\n```java\n@Service\npublic class MetricsCollector {\n  private final MeterRegistry meterRegistry;\n  \n  @Autowired\n  public MetricsCollector(MeterRegistry meterRegistry) {\n    this.meterRegistry = meterRegistry;\n  }\n  \n  public void recordBackupCompletion(DbInstance dbInstance, Instant startTime, Instant endTime, long size, boolean success) {\n    // Record backup metrics\n    Tags tags = Tags.of(\n      \"db\", dbInstance.getId(),\n      \"type\", dbInstance.getType().toString()\n    );\n    \n    meterRegistry.timer(\"backup.duration\", tags).record(Duration.between(startTime, endTime));\n    meterRegistry.counter(\"backup.size\", tags).increment(size);\n    meterRegistry.counter(\"backup.success\", tags).increment(success ? 1 : 0);\n    \n    // Update RPO tracking\n    if (success) {\n      meterRegistry.gauge(\"backup.last_success_age\", tags, 0);\n    }\n  }\n  \n  @Scheduled(fixedRate = 60000)\n  public void updateBackupAges() {\n    // Periodically update age of last successful backup for all instances\n    for (DbInstance instance : getAllDbInstances()) {\n      Backup lastBackup = findLastSuccessfulBackup(instance);\n      if (lastBackup != null) {\n        Duration age = Duration.between(lastBackup.getTimestamp(), Instant.now());\n        Tags tags = Tags.of(\n          \"db\", instance.getId(),\n          \"type\", instance.getType().toString()\n        );\n        meterRegistry.gauge(\"backup.last_success_age\", tags, age.getSeconds());\n      }\n    }\n  }\n}\n```",
+        "testStrategy": "1. JUnit 5 unit tests for metrics collection logic\n2. Spring Boot integration tests with Micrometer and Prometheus\n3. React component tests for dashboard functionality\n4. Alert triggering tests\n5. End-to-end tests with simulated failures",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Core Metrics Collection System",
+            "description": "Develop the foundational metrics collection infrastructure to capture and store key performance indicators for backup and restore operations.",
+            "dependencies": [],
+            "details": "Create a MetricsCollector class in Java 21 and Spring Boot that interfaces with Micrometer to record backup duration, size, success rate, and other core metrics. Implement the recordBackupCompletion and updateBackupAges methods as outlined in the pseudo-code. Set up time-series storage for metrics with appropriate retention policies using Prometheus or a similar monitoring system.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for metrics collection logic, Spring Boot integration tests with the monitoring system, validation of metric accuracy under various conditions."
+          },
+          {
+            "id": 2,
+            "title": "Develop RPO and RTO Tracking Mechanisms",
+            "description": "Implement specialized tracking for Recovery Point Objective (RPO) and Recovery Time Objective (RTO) metrics to ensure compliance with service level agreements.",
+            "dependencies": [
+              1
+            ],
+            "details": "Create mechanisms in Java 21 and Spring Boot to track backup age for RPO compliance, measuring time since last successful backup for each database instance. Implement RTO measurement during restore operations and drills, capturing restore duration and success rates. Set up continuous monitoring of these metrics against defined SLAs using Micrometer gauges and timers.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for RPO/RTO calculation logic, Spring Boot integration tests with backup and restore operations, validation against predefined SLA thresholds."
+          },
+          {
+            "id": 3,
+            "title": "Build Custom Monitoring Dashboards",
+            "description": "Design and implement comprehensive dashboards to visualize system health, backup/restore performance, and compliance with RPO/RTO objectives.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Create dashboards using React and a visualization library like Recharts showing backup success rates, backup age distribution, restore performance, storage utilization, and network usage during operations. Implement drill-down capabilities from system-wide views to individual database instances. Include trend analysis for capacity planning and performance optimization. Use Spring Boot backend APIs to provide the necessary data.",
+            "status": "pending",
+            "testStrategy": "React component tests using Jest and React Testing Library, visual verification of metrics display, user acceptance testing with operations team."
+          },
+          {
+            "id": 4,
+            "title": "Implement Alert Definition and Routing System",
+            "description": "Develop a comprehensive alerting system to notify appropriate personnel of backup failures, restore issues, and SLA violations.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Define alert thresholds for backup failures, restore failures, approaching RPO/RTO limits, and storage capacity issues using Spring Boot Actuator and Micrometer. Implement alert routing based on severity and type to appropriate teams. Create escalation paths for critical alerts and implement alert aggregation to prevent alert storms during system-wide issues.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 alert triggering tests with simulated failures, notification delivery validation, escalation path testing."
+          },
+          {
+            "id": 5,
+            "title": "Integrate System Health Monitoring",
+            "description": "Extend metrics collection to include overall system health indicators beyond backup/restore operations.",
+            "dependencies": [
+              1,
+              3,
+              4
+            ],
+            "details": "Implement monitoring for queue depths, worker utilization, storage system health, and network performance using Java 21, Spring Boot, and Micrometer. Create health scores for different system components to provide at-a-glance system status. Set up correlation between system health metrics and backup/restore performance to aid in troubleshooting. Use Spring Boot Actuator health endpoints for component status reporting.",
+            "status": "pending",
+            "testStrategy": "End-to-end tests with simulated system degradation, correlation analysis between metrics, load testing to validate monitoring under stress."
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Implement Compliance and Audit Logging",
+        "description": "Develop a comprehensive audit logging system for backup and restore operations to support compliance requirements and forensic analysis.",
+        "status": "pending",
+        "dependencies": [
+          3,
+          6
+        ],
+        "priority": "medium",
+        "details": "Create an audit logging system using Java 21 and Spring Boot that records all backup and restore operations, policy changes, and access to backup data. The system should support compliance requirements and provide data for forensic analysis when needed.\n\nComponents:\n- Audit log schema design using Java 21 records\n- Logging integration in all system components using Spring AOP\n- Secure storage for audit logs\n- Retention policy for audit data\n- Reporting interface for compliance teams built with React\n\nAudit events to log:\n- Backup initiation and completion\n- Restore initiation and completion\n- Policy changes\n- Access to backup data\n- Configuration changes\n- System errors and exceptions\n\nPseudo-code:\n```java\n@Service\npublic class AuditLogger {\n  public void logEvent(EventType eventType, String actor, String resource, Map<String, Object> details) {\n    // Create audit log entry\n    AuditLogEntry entry = new AuditLogEntry(\n      Instant.now(),\n      eventType,\n      actor,\n      resource,\n      details,\n      getSourceIp()\n    );\n    \n    // Store audit log securely\n    secureAuditStore.append(entry);\n  }\n    \n  public List<AuditLogEntry> generateComplianceReport(Instant startTime, Instant endTime, Map<String, String> filters) {\n    // Retrieve and format audit logs for compliance reporting\n    List<AuditLogEntry> logs = secureAuditStore.query(startTime, endTime, filters);\n    return formatComplianceReport(logs);\n  }\n}\n```",
+        "testStrategy": "1. JUnit 5 unit tests for audit logging logic\n2. Spring Boot integration tests with all system components\n3. Compliance report generation tests\n4. Security tests for audit log storage\n5. Retention policy enforcement tests",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design Audit Log Schema and Storage",
+            "description": "Create a comprehensive schema for audit logs and implement secure storage mechanisms for long-term retention.",
+            "dependencies": [],
+            "details": "Design a schema using Java 21 records that captures all required audit events including timestamp, event type, actor, resource, details, and source IP. Implement secure storage with encryption at rest and in transit using Spring Security. Define retention periods based on compliance requirements (e.g., 7 years for financial data). Include tamper-proof mechanisms to prevent log modification.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for schema validation, security tests for encryption implementation, performance tests for high-volume logging, and verification of tamper-proof mechanisms."
+          },
+          {
+            "id": 2,
+            "title": "Implement Core Audit Logging Service",
+            "description": "Develop the central AuditLogger service that will capture and store all system events according to the defined schema.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement the AuditLogger class in Java 21 and Spring Boot with methods for logging different event types. Include functionality for batching log entries during high-volume operations. Ensure thread safety for concurrent logging operations. Implement retry mechanisms for failed log storage attempts using Spring Retry. Add context enrichment to automatically capture environment details.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for logging methods, Spring Boot integration tests with storage layer, stress tests with high concurrency, and failure recovery tests."
+          },
+          {
+            "id": 3,
+            "title": "Integrate Audit Logging Across System Components",
+            "description": "Add audit logging calls to all system components to capture backup/restore operations, policy changes, and data access events.",
+            "dependencies": [
+              2
+            ],
+            "details": "Integrate the AuditLogger into the BackupManager, RestoreManager, PolicyManager, and AccessControl components using Spring AOP. Implement aspect-oriented logging for cross-cutting concerns. Create standardized logging patterns for common operations. Ensure all required events (backup/restore operations, policy changes, data access, configuration changes, errors) are captured with appropriate detail.",
+            "status": "pending",
+            "testStrategy": "Spring Boot integration tests verifying all components generate appropriate audit logs, end-to-end tests simulating complete backup/restore workflows, and validation of log completeness."
+          },
+          {
+            "id": 4,
+            "title": "Develop Compliance Reporting Interface",
+            "description": "Create a reporting system that allows compliance teams to query, filter, and export audit logs for regulatory purposes.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Implement the generateComplianceReport method in Java 21 and Spring Boot with flexible filtering options. Create predefined report templates for common compliance requirements (GDPR, SOX, HIPAA). Add export capabilities in multiple formats (CSV, PDF, JSON). Implement access controls using Spring Security to restrict report access to authorized compliance personnel. Include data aggregation for summary reports. Build a React-based UI for report generation and viewing.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for report generation logic, Spring Boot integration tests with the audit log storage, React component tests using Jest for the reporting interface, and validation of export format compliance."
+          },
+          {
+            "id": 5,
+            "title": "Implement Forensic Analysis Capabilities",
+            "description": "Enhance the audit system with advanced search, correlation, and visualization features for forensic analysis of security incidents.",
+            "dependencies": [
+              2,
+              4
+            ],
+            "details": "Develop advanced search capabilities in Java 21 and Spring Boot with complex query support. Implement event correlation to link related activities. Create visualization tools using React and D3.js for activity timelines. Add anomaly detection for suspicious patterns. Implement chain-of-custody tracking for forensic investigations. Include the ability to reconstruct the sequence of events leading to an incident.",
+            "status": "pending",
+            "testStrategy": "Scenario-based tests simulating security incidents, performance tests for complex queries on large datasets, validation of correlation accuracy, and usability testing with security analysts."
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Implement Multi-region Support",
+        "description": "Extend the CBCR system to support multi-region backup storage and restore capabilities to meet compliance and disaster recovery requirements.",
+        "status": "pending",
+        "dependencies": [
+          3,
+          5
+        ],
+        "priority": "high",
+        "details": "Enhance the system using Java 21 and Spring Boot to support multi-region backup storage and restore operations. Implement region-specific policies for data storage and ensure compliance with regional data regulations.\n\nComponents:\n- Region-aware backup storage policies\n- Cross-region restore capabilities\n- Region-specific retention rules\n- Compliance enforcement per region\n- Performance optimization for cross-region operations\n\nPseudo-code:\n```java\n@Service\npublic class RegionManager {\n  public List<String> getStorageRegions(DbInstance dbInstance) {\n    // Determine appropriate storage regions based on policies\n    String primaryRegion = dbInstance.getRegion();\n    List<String> secondaryRegions = getSecondaryRegions(dbInstance.getType(), primaryRegion);\n    \n    List<String> allRegions = new ArrayList<>();\n    allRegions.add(primaryRegion);\n    allRegions.addAll(secondaryRegions);\n    return allRegions;\n  }\n    \n  public List<BlobstoreReference> storeBackupMultiRegion(Snapshot snapshot, List<String> regions) {\n    // Store backup in multiple regions\n    List<BlobstoreReference> references = new ArrayList<>();\n    for (String region : regions) {\n      BlobstoreReference reference = blobstoreClient.uploadToRegion(snapshot, region);\n      references.add(reference);\n    }\n    return references;\n  }\n    \n  public RestoreResult restoreFromRegion(DbInstance dbInstance, String targetRegion) {\n    // Find appropriate backup in target region or nearest available\n    BlobstoreReference reference = findBackupInRegion(dbInstance, targetRegion);\n    if (reference == null) {\n      reference = findNearestRegionBackup(dbInstance, targetRegion);\n    }\n      \n    // Execute restore from selected region\n    return executeRestore(reference, dbInstance);\n  }\n}\n```",
+        "testStrategy": "1. JUnit 5 unit tests for region selection logic\n2. Spring Boot integration tests with multi-region Blobstore\n3. Cross-region restore tests\n4. Compliance validation tests\n5. Performance tests for cross-region operations",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design Region-aware Backup Storage Policies",
+            "description": "Create a framework for defining and enforcing region-specific backup storage policies based on database type, compliance requirements, and disaster recovery needs.",
+            "dependencies": [],
+            "details": "Develop a policy definition schema using Java 21 records that includes primary and secondary regions, data residency rules, and compliance requirements. Implement the getStorageRegions method in Spring Boot to determine appropriate storage regions based on these policies. Create a configuration system using Spring Boot's @ConfigurationProperties for administrators to define region mappings and preferences.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for policy evaluation logic, validation tests for policy schema, Spring Boot integration tests with policy store, compliance validation against regional requirements."
+          },
+          {
+            "id": 2,
+            "title": "Implement Multi-region Backup Storage",
+            "description": "Extend the backup system to store snapshots across multiple regions according to the defined policies.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement the storeBackupMultiRegion method in Java 21 and Spring Boot to distribute backups across specified regions. Create a tracking system for multi-region backup references using Spring Data. Develop retry and fallback mechanisms using Spring Retry for region unavailability. Optimize parallel upload capabilities using Java 21's virtual threads to minimize backup time across regions.",
+            "status": "pending",
+            "testStrategy": "Spring Boot integration tests with multi-region blob storage, failure scenario testing with simulated region outages, performance tests for parallel uploads, validation of backup consistency across regions."
+          },
+          {
+            "id": 3,
+            "title": "Develop Cross-region Restore Capabilities",
+            "description": "Create functionality to restore databases from any available region with intelligent region selection based on proximity and availability.",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement the restoreFromRegion method in Java 21 and Spring Boot to locate and restore backups from specified regions. Develop algorithms for finding the nearest available backup when the target region is unavailable. Create a region health monitoring system using Spring Boot Actuator to detect outages. Optimize data transfer paths for cross-region restores.",
+            "status": "pending",
+            "testStrategy": "Cross-region restore tests with various failure scenarios, performance testing of restore operations across different region combinations, validation of restored data integrity."
+          },
+          {
+            "id": 4,
+            "title": "Implement Region-specific Retention Rules",
+            "description": "Develop a system to manage backup retention according to region-specific compliance and regulatory requirements.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Create a retention rule engine in Java 21 and Spring Boot that enforces different retention periods based on region and data classification. Implement automated cleanup processes for expired backups in each region using Spring's scheduling capabilities. Develop override mechanisms for legal holds across regions. Ensure retention metadata is properly tracked and enforced using Spring Data repositories.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for retention rule evaluation, Spring Boot integration tests with cleanup processes, validation tests against regional compliance requirements, time-based testing of retention enforcement."
+          },
+          {
+            "id": 5,
+            "title": "Optimize Performance for Cross-region Operations",
+            "description": "Enhance the system performance for multi-region backup and restore operations through caching, compression, and intelligent data routing.",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Implement region-aware data compression in Java 21 to reduce transfer sizes. Develop a caching layer using Spring Cache for frequently accessed backup metadata. Create intelligent routing algorithms to minimize cross-region data transfer costs. Implement bandwidth throttling to prevent network saturation. Develop performance monitoring specific to multi-region operations using Micrometer.",
+            "status": "pending",
+            "testStrategy": "Performance benchmarking across different region combinations, network utilization tests, cost analysis of data transfers, load testing under various network conditions."
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Extend Database Technology Support",
+        "description": "Implement support for additional database technologies (Zookeeper, Docstore, Schemaless) in the backup and restore frameworks.",
+        "status": "pending",
+        "dependencies": [
+          2,
+          5
+        ],
+        "priority": "medium",
+        "details": "Extend the backup and restore driver frameworks using Java 21 and Spring Boot to support additional database technologies as specified in the PRD. Implement technology-specific plugins for Zookeeper, Docstore, and Schemaless.\n\nComponents:\n- Zookeeper backup/restore plugin\n- Docstore backup/restore plugin\n- Schemaless backup/restore plugin\n- Testing and validation for each technology\n- Documentation for technology-specific considerations\n\nImplementation approach:\n1. Research each database technology's backup/restore mechanisms\n2. Implement consistent snapshot creation for each technology\n3. Develop restore validation logic specific to each technology\n4. Test with varying database sizes and configurations\n5. Document technology-specific limitations and best practices\n\nPseudo-code for Zookeeper plugin:\n```java\n@Component\npublic class ZookeeperBackupDriver implements BackupDriver {\n  @Override\n  public Snapshot createSnapshot(DbInstance zkInstance) {\n    // Connect to Zookeeper instance\n    ZooKeeper client = connectToZookeeper(zkInstance);\n    \n    // Trigger snapshot creation\n    client.takeSnapshot();\n    \n    // Package snapshot files\n    List<Path> snapshotFiles = collectSnapshotFiles(zkInstance.getDataDir());\n    return createSnapshotArchive(snapshotFiles);\n  }\n    \n  @Override\n  public boolean validateSnapshot(Snapshot snapshot) {\n    // Validate Zookeeper snapshot integrity\n    return validateZkSnapshotStructure(snapshot);\n  }\n    \n  // Other method implementations\n}\n\n@Component\npublic class ZookeeperRestoreDriver implements RestoreDriver {\n  // Implementation of restore operations for Zookeeper\n}\n```",
+        "testStrategy": "1. JUnit 5 unit tests for each technology plugin\n2. Spring Boot integration tests with actual database instances\n3. Snapshot consistency validation tests\n4. Restore validation tests\n5. Performance tests with varying database sizes",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Zookeeper Backup/Restore Plugin",
+            "description": "Develop a plugin for the backup and restore framework that supports Zookeeper database technology",
+            "dependencies": [],
+            "details": "Research Zookeeper's native backup mechanisms. Implement the BackupDriver interface in Java 21 for creating consistent snapshots of Zookeeper data. Develop the RestoreDriver interface for restoring Zookeeper from snapshots. Include validation logic to verify snapshot integrity and successful restoration. Implement error handling and retry mechanisms specific to Zookeeper operations. Use Spring Boot's dependency injection for configuration.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for Zookeeper-specific backup/restore logic. Spring Boot integration tests with actual Zookeeper instances. Snapshot consistency validation tests. Restore validation with various Zookeeper configurations. Performance tests with different Zookeeper cluster sizes."
+          },
+          {
+            "id": 2,
+            "title": "Implement Docstore Backup/Restore Plugin",
+            "description": "Develop a plugin for the backup and restore framework that supports Docstore database technology",
+            "dependencies": [
+              1
+            ],
+            "details": "Research Docstore's backup mechanisms and consistency requirements. Implement the BackupDriver interface in Java 21 for creating consistent snapshots of Docstore data. Develop the RestoreDriver interface for restoring Docstore from snapshots. Include validation logic to verify document integrity and indexing after restoration. Implement Docstore-specific error handling and recovery procedures. Use Spring Boot's auto-configuration for plugin discovery.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for Docstore-specific backup/restore logic. Spring Boot integration tests with actual Docstore instances. Document consistency validation tests. Index verification after restore operations. Performance tests with varying document collection sizes."
+          },
+          {
+            "id": 3,
+            "title": "Implement Schemaless Backup/Restore Plugin",
+            "description": "Develop a plugin for the backup and restore framework that supports Schemaless database technology",
+            "dependencies": [
+              1
+            ],
+            "details": "Research Schemaless database backup mechanisms and consistency requirements. Implement the BackupDriver interface in Java 21 for creating consistent snapshots of Schemaless data. Develop the RestoreDriver interface for restoring Schemaless from snapshots. Include validation logic to verify data integrity after restoration. Implement Schemaless-specific error handling and recovery procedures. Use Spring Boot's dependency injection for client configuration.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for Schemaless-specific backup/restore logic. Spring Boot integration tests with actual Schemaless instances. Data consistency validation tests. Performance tests with varying data sizes and sharding configurations. Recovery scenario testing for partial failures."
+          },
+          {
+            "id": 4,
+            "title": "Integrate and Test All Database Technology Plugins",
+            "description": "Perform comprehensive integration testing of all implemented database technology plugins within the backup and restore frameworks",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Integrate all three plugins (Zookeeper, Docstore, Schemaless) with the existing backup and restore frameworks built with Java 21 and Spring Boot. Verify plugin discovery and registration mechanisms work correctly. Test cross-technology scenarios where appropriate. Validate monitoring integration for all plugins using Micrometer. Perform load testing to ensure system stability under various conditions.",
+            "status": "pending",
+            "testStrategy": "End-to-end testing of the complete backup and restore workflows for each technology. Cross-technology integration tests. Performance benchmarking against SLA requirements. Failure scenario testing including network partitions and storage failures. Monitoring and alerting verification."
+          },
+          {
+            "id": 5,
+            "title": "Create Documentation and Deployment Package",
+            "description": "Develop comprehensive documentation and prepare deployment package for the extended database technology support",
+            "dependencies": [
+              4
+            ],
+            "details": "Document technology-specific considerations, limitations, and best practices for each database plugin. Create user guides for configuring backup and restore operations for each technology. Update system architecture documentation to reflect the new plugins. Prepare deployment packages including Spring Boot configuration templates. Document performance characteristics and resource requirements. Include Java 21 and Spring Boot version compatibility information.",
+            "status": "pending",
+            "testStrategy": "Documentation review by technical writers and database technology experts. Verification of deployment procedures in staging environment. User acceptance testing with service owners. Validation of configuration templates with various database configurations."
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Implement Scalability Enhancements",
+        "description": "Optimize the CBCR system to handle the required scale of 100 PB+ daily backup across 10k+ databases with appropriate performance and resource utilization.",
+        "status": "pending",
+        "dependencies": [
+          1,
+          2,
+          3,
+          5
+        ],
+        "priority": "high",
+        "details": "Enhance the system using Java 21 and Spring Boot to meet the scalability requirements specified in the PRD. Implement optimizations for handling large backup volumes, high database counts, and efficient resource utilization.\n\nComponents:\n- Distributed backup processing using Java 21 virtual threads\n- Efficient queue management with Spring Boot\n- Resource-aware scheduling\n- Performance optimizations for large snapshots\n- Horizontal scaling capabilities\n\nOptimization areas:\n1. Parallel processing of backup/restore operations using Java 21 concurrency features\n2. Chunking of large snapshots\n3. Efficient metadata indexing\n4. Resource pooling and reuse\n5. Adaptive throttling based on system load\n\nPseudo-code:\n```java\n@Service\npublic class ScalableBackupProcessor {\n  public BackupResult processLargeBackup(DbInstance dbInstance) {\n    // Estimate backup size and resource requirements\n    long estimatedSize = estimateBackupSize(dbInstance);\n    \n    if (estimatedSize > LARGE_BACKUP_THRESHOLD) {\n      // Split into chunks for parallel processing\n      List<BackupChunk> chunks = planBackupChunks(dbInstance, estimatedSize);\n      \n      // Process chunks in parallel with resource constraints\n      List<ChunkResult> results = parallelProcessWithConstraints(chunks, availableResources);\n      \n      // Combine results\n      return combineChunkResults(results);\n    } else {\n      // Process normally for smaller backups\n      return processStandardBackup(dbInstance);\n    }\n  }\n}\n```",
+        "testStrategy": "1. Load testing with simulated 10k+ database instances\n2. Performance testing with large (multi-TB) databases\n3. Resource utilization monitoring during peak loads\n4. Scalability validation with increasing workloads\n5. Long-running stability tests",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Distributed Backup Processing",
+            "description": "Design and implement a distributed processing framework that can efficiently handle backup operations across 10k+ databases simultaneously",
+            "dependencies": [],
+            "details": "Create a distributed processing architecture using Java 21 and Spring Boot that can scale horizontally across multiple worker nodes. Implement work distribution algorithms that efficiently allocate backup tasks based on database size, priority, and available resources. Use Java 21's virtual threads for efficient concurrent processing. Include failure recovery mechanisms to handle worker node failures without losing backup progress.",
+            "status": "pending",
+            "testStrategy": "Conduct load testing with simulated 10k+ database instances, measure throughput and resource utilization across distributed nodes, and verify fault tolerance by simulating node failures during backup operations"
+          },
+          {
+            "id": 2,
+            "title": "Develop Chunking System for Large Snapshots",
+            "description": "Implement an intelligent chunking system that can break down large database snapshots (multi-TB) into manageable pieces for parallel processing",
+            "dependencies": [
+              1
+            ],
+            "details": "Design algorithms in Java 21 to analyze database structure and determine optimal chunk boundaries. Implement metadata tracking for chunk reassembly using Spring Data. Create a parallel processing pipeline using Java 21's structured concurrency that can efficiently process chunks while maintaining data consistency. Include verification mechanisms to ensure chunk integrity during processing and storage.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 tests with various database sizes including multi-TB instances, measure chunking efficiency and parallel processing gains, and verify data integrity after reassembly"
+          },
+          {
+            "id": 3,
+            "title": "Implement Resource-Aware Scheduling",
+            "description": "Create an intelligent scheduling system that optimizes backup operations based on available system resources and prioritization rules",
+            "dependencies": [
+              1
+            ],
+            "details": "Develop a resource monitoring system using Spring Boot Actuator and Micrometer that tracks CPU, memory, network, and storage utilization. Implement adaptive scheduling algorithms in Java 21 that can throttle or accelerate backup operations based on current system load. Create priority queues that ensure critical backups are processed first while maintaining overall system stability.",
+            "status": "pending",
+            "testStrategy": "Perform resource contention testing under various load conditions, verify proper prioritization of critical backups, and measure system stability during peak loads"
+          },
+          {
+            "id": 4,
+            "title": "Optimize Metadata Indexing and Retrieval",
+            "description": "Enhance the metadata management system to efficiently handle indexing and retrieval for 100 PB+ of backup data",
+            "dependencies": [
+              2
+            ],
+            "details": "Redesign the metadata database schema for optimal query performance at scale using Spring Data JPA with appropriate indexing strategies. Implement sharding and partitioning strategies to distribute metadata across multiple storage nodes. Create efficient caching mechanisms using Spring Cache for frequently accessed metadata. Develop background processes for metadata maintenance and optimization.",
+            "status": "pending",
+            "testStrategy": "Benchmark metadata operations with simulated data volumes exceeding 100 PB, test query performance under high concurrency, and verify index optimization effectiveness"
+          },
+          {
+            "id": 5,
+            "title": "Implement Horizontal Scaling Capabilities",
+            "description": "Develop infrastructure and orchestration components that enable automatic scaling of the CBCR system based on workload demands",
+            "dependencies": [
+              1,
+              3
+            ],
+            "details": "Create infrastructure-as-code templates for deploying additional processing nodes with Spring Boot applications. Implement auto-scaling triggers based on queue depth, processing latency, and resource utilization metrics collected via Micrometer. Develop load balancing mechanisms to distribute work evenly across the cluster. Include graceful node addition/removal processes to maintain system stability during scaling events.",
+            "status": "pending",
+            "testStrategy": "Test auto-scaling behavior under varying workloads, measure scaling response times and efficiency, and verify system stability during scaling operations"
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "Integrate with Capacity Planning Tools",
+        "description": "Integrate the CBCR system with Uber's capacity planning tools to ensure appropriate resource allocation and forecast future needs.",
+        "status": "pending",
+        "dependencies": [
+          7,
+          11
+        ],
+        "priority": "medium",
+        "details": "Develop integration with Uber's capacity planning infrastructure using Java 21 and Spring Boot to ensure the CBCR system has appropriate resources allocated and can forecast future needs based on growth trends.\n\nComponents:\n- Resource usage reporting using Micrometer metrics\n- Growth trend analysis\n- Capacity forecasting\n- Integration with infrastructure provisioning\n- Optimization recommendations\n\nIntegration points:\n1. Report current resource utilization to capacity planning systems\n2. Receive resource allocation updates\n3. Provide growth forecasts based on backup volume trends\n4. Request additional resources based on projected needs\n5. Optimize resource usage based on recommendations\n\nPseudo-code:\n```java\n@Service\npublic class CapacityManager {\n  @Scheduled(fixedRate = 3600000) // hourly\n  public void reportResourceUsage() {\n    // Collect current resource usage metrics\n    Map<String, Object> usage = Map.of(\n      \"storage\", collectStorageUsage(),\n      \"network\", collectNetworkUsage(),\n      \"compute\", collectComputeUsage()\n    );\n    \n    // Report to capacity planning system\n    capacityPlanningClient.reportUsage(usage);\n  }\n    \n  public Map<String, Object> forecastFutureNeeds(int horizonDays) {\n    // Analyze growth trends\n    double storageGrowth = analyzeStorageGrowthTrend();\n    double backupCountGrowth = analyzeBackupCountTrend();\n    \n    // Project future needs\n    Map<String, Object> forecast = Map.of(\n      \"storage\", projectStorageNeeds(storageGrowth, horizonDays),\n      \"network\", projectNetworkNeeds(backupCountGrowth, horizonDays),\n      \"compute\", projectComputeNeeds(backupCountGrowth, horizonDays)\n    );\n    \n    // Report forecast to capacity planning\n    capacityPlanningClient.reportForecast(forecast);\n    return forecast;\n  }\n}\n```",
+        "testStrategy": "1. JUnit 5 unit tests for resource usage collection\n2. Spring Boot integration tests with capacity planning systems\n3. Forecast accuracy validation\n4. Resource optimization tests\n5. End-to-end workflow tests",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Resource Usage Reporting Module",
+            "description": "Develop a module to collect and report current resource utilization metrics to Uber's capacity planning systems",
+            "dependencies": [],
+            "details": "Create a module using Java 21 and Spring Boot that collects storage, network, and compute usage metrics from the CBCR system using Micrometer. Implement the reportResourceUsage() method to aggregate these metrics and send them to capacity planning systems via their API. Include appropriate error handling and retry logic for failed reporting attempts using Spring Retry.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for resource metric collection functions, Spring Boot integration tests with capacity planning API, mock tests for error scenarios, performance impact assessment"
+          },
+          {
+            "id": 2,
+            "title": "Develop Growth Trend Analysis Engine",
+            "description": "Create an analytics engine to analyze historical resource usage data and identify growth patterns",
+            "dependencies": [
+              1
+            ],
+            "details": "Build a data analysis component in Java 21 that processes historical resource usage data to identify growth trends in storage consumption, backup frequency, and compute resource utilization. Implement statistical models to detect seasonal patterns and long-term growth trajectories. Store analysis results for use in forecasting using Spring Data repositories.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for trend analysis algorithms, validation against historical data, accuracy measurement against known growth patterns, performance testing with large datasets"
+          },
+          {
+            "id": 3,
+            "title": "Implement Capacity Forecasting System",
+            "description": "Build a forecasting system that projects future resource needs based on identified growth trends",
+            "dependencies": [
+              2
+            ],
+            "details": "Develop the forecastFutureNeeds() method in Java 21 and Spring Boot that uses growth trend data to project future resource requirements across storage, network, and compute dimensions. Implement configurable forecast horizons (e.g., 30, 90, 180 days). Generate confidence intervals for forecasts and provide visualization capabilities for capacity planning teams using React-based dashboards.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for forecasting algorithms, validation against historical growth patterns, accuracy measurement using backtesting, and visualization correctness verification"
+          },
+          {
+            "id": 4,
+            "title": "Create Infrastructure Provisioning Integration",
+            "description": "Develop integration points with Uber's infrastructure provisioning systems to request and receive resource allocation updates",
+            "dependencies": [
+              3
+            ],
+            "details": "Implement bidirectional integration with Uber's infrastructure provisioning systems using Java 21 and Spring Boot. Create RESTful APIs to receive resource allocation updates and apply them to the CBCR system. Develop request workflows to automatically or manually trigger resource requests based on forecasted needs. Include approval workflows for significant resource increases.",
+            "status": "pending",
+            "testStrategy": "Spring Boot integration tests with provisioning systems, end-to-end workflow tests, validation of resource allocation application, security and permission testing"
+          },
+          {
+            "id": 5,
+            "title": "Build Resource Optimization Recommendation Engine",
+            "description": "Develop a system to generate and apply resource optimization recommendations based on usage patterns",
+            "dependencies": [
+              1,
+              3
+            ],
+            "details": "Create an optimization engine in Java 21 and Spring Boot that analyzes resource usage patterns to identify inefficiencies and generate recommendations for improvement. Implement algorithms to detect over-provisioning, underutilization, and cost-saving opportunities. Develop React-based interfaces to present recommendations to administrators and apply approved optimizations automatically.",
+            "status": "pending",
+            "testStrategy": "JUnit 5 unit tests for optimization algorithms, validation of recommendation quality against known inefficiencies, cost impact analysis, user acceptance testing of recommendation interfaces"
+          }
+        ]
+      }
+    ],
+    "metadata": {
+      "created": "2025-07-14T20:08:47.639Z",
+      "updated": "2025-07-14T20:08:47.639Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
