@@ -1,0 +1,86 @@
+# Task ID: 7
+# Title: Implement Metrics and Alerting System
+# Status: pending
+# Dependencies: 1, 6
+# Priority: high
+# Description: Develop comprehensive metrics collection, dashboards, and alerting for backup and restore operations to monitor RPO, RTO, and overall system health.
+# Details:
+Create a metrics and alerting system that provides visibility into the health and performance of the CBCR system. Implement dashboards for monitoring RPO, RTO, backup success rates, and other key metrics. Set up alerts for backup failures, restore failures, and SLA violations.
+
+Components:
+- Metrics collection for backup and restore operations
+- RPO tracking per database instance
+- RTO measurement during restore drills
+- Custom dashboards in monitoring system
+- Alert definitions and routing
+
+Metrics to collect:
+- Backup age (for RPO tracking)
+- Backup success rate
+- Backup duration
+- Backup size
+- Restore duration (for RTO tracking)
+- Restore success rate
+- Network utilization during backups
+- Storage utilization
+
+Pseudo-code:
+```
+class MetricsCollector:
+  def record_backup_completion(db_instance, start_time, end_time, size, success):
+    # Record backup metrics
+    emit_metric('backup.duration', end_time - start_time, {db: db_instance.id, type: db_instance.type})
+    emit_metric('backup.size', size, {db: db_instance.id, type: db_instance.type})
+    emit_metric('backup.success', success ? 1 : 0, {db: db_instance.id, type: db_instance.type})
+    
+    # Update RPO tracking
+    if success:
+      emit_gauge('backup.last_success_age', 0, {db: db_instance.id, type: db_instance.type})
+    
+  def update_backup_ages():
+    # Periodically update age of last successful backup for all instances
+    for instance in get_all_db_instances():
+      last_backup = find_last_successful_backup(instance)
+      if last_backup:
+        age = current_time() - last_backup.timestamp
+        emit_gauge('backup.last_success_age', age, {db: instance.id, type: instance.type})
+```
+
+# Test Strategy:
+1. Unit tests for metrics collection logic
+2. Integration tests with monitoring system
+3. Dashboard functionality tests
+4. Alert triggering tests
+5. End-to-end tests with simulated failures
+
+# Subtasks:
+## 1. Implement Core Metrics Collection System [pending]
+### Dependencies: None
+### Description: Develop the foundational metrics collection infrastructure to capture and store key performance indicators for backup and restore operations.
+### Details:
+Create a MetricsCollector class that interfaces with the monitoring system to record backup duration, size, success rate, and other core metrics. Implement the record_backup_completion and update_backup_ages methods as outlined in the pseudo-code. Set up time-series storage for metrics with appropriate retention policies.
+
+## 2. Develop RPO and RTO Tracking Mechanisms [pending]
+### Dependencies: 7.1
+### Description: Implement specialized tracking for Recovery Point Objective (RPO) and Recovery Time Objective (RTO) metrics to ensure compliance with service level agreements.
+### Details:
+Create mechanisms to track backup age for RPO compliance, measuring time since last successful backup for each database instance. Implement RTO measurement during restore operations and drills, capturing restore duration and success rates. Set up continuous monitoring of these metrics against defined SLAs.
+
+## 3. Build Custom Monitoring Dashboards [pending]
+### Dependencies: 7.1, 7.2
+### Description: Design and implement comprehensive dashboards to visualize system health, backup/restore performance, and compliance with RPO/RTO objectives.
+### Details:
+Create dashboards showing backup success rates, backup age distribution, restore performance, storage utilization, and network usage during operations. Implement drill-down capabilities from system-wide views to individual database instances. Include trend analysis for capacity planning and performance optimization.
+
+## 4. Implement Alert Definition and Routing System [pending]
+### Dependencies: 7.1, 7.2
+### Description: Develop a comprehensive alerting system to notify appropriate personnel of backup failures, restore issues, and SLA violations.
+### Details:
+Define alert thresholds for backup failures, restore failures, approaching RPO/RTO limits, and storage capacity issues. Implement alert routing based on severity and type to appropriate teams. Create escalation paths for critical alerts and implement alert aggregation to prevent alert storms during system-wide issues.
+
+## 5. Integrate System Health Monitoring [pending]
+### Dependencies: 7.1, 7.3, 7.4
+### Description: Extend metrics collection to include overall system health indicators beyond backup/restore operations.
+### Details:
+Implement monitoring for queue depths, worker utilization, storage system health, and network performance. Create health scores for different system components to provide at-a-glance system status. Set up correlation between system health metrics and backup/restore performance to aid in troubleshooting.
+
