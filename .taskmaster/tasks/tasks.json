@@ -28,7 +28,7 @@
               1
             ],
             "details": "Implement collectors for system metrics using Spring Boot Actuator and Micrometer, including CPU usage, memory availability, network bandwidth, and I/O capacity. Create a rate limiting algorithm that uses these metrics to determine how many concurrent backup jobs can run. Implement backoff strategies for when system resources are constrained. Use Java 21's virtual threads for efficient handling of monitoring tasks.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "JUnit 5 unit tests for rate limiting algorithms. Spring Boot integration tests with simulated high/low system loads to verify appropriate throttling behavior."
           },
           {
@@ -844,7 +844,7 @@
     ],
     "metadata": {
       "created": "2025-07-14T20:08:47.639Z",
-      "updated": "2025-07-14T20:44:55.540Z",
+      "updated": "2025-07-19T18:20:34.115Z",
       "description": "Tasks for master context"
     }
   }

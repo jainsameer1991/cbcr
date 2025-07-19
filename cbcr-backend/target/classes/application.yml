@@ -1,0 +1,39 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: cbcr-scheduler
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+
+# Rate limiting configuration
+rate:
+  limiter:
+    max:
+      concurrent:
+        jobs: 5
+    cpu:
+      threshold: 80.0
+    memory:
+      threshold: 85.0
+    backoff:
+      duration:
+        ms: 30000
+
+# Logging configuration
+logging:
+  level:
+    com.cbcr.scheduler: DEBUG
+    org.springframework.web: INFO 
